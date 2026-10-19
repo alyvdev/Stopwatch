@@ -1,99 +1,186 @@
-var hours = document.querySelector('.hours');
-var minutes = document.querySelector('.minutes');
-var seconds = document.querySelector('.seconds');
-var ms = document.querySelector('.ms');
+const hoursDisplay = document.querySelector('.hours');
+const minutesDisplay = document.querySelector('.minutes');
+const secondsDisplay = document.querySelector('.seconds');
+const hundredthsDisplay = document.querySelector('.hundredths');
+const startButton = document.querySelector('.start');
+const pauseButton = document.querySelector('.pause');
+const resetButton = document.querySelector('.reset');
+const lapButton = document.querySelector('.lap');
+const clearLapsButton = document.querySelector('.clear-laps');
+const lapList = document.querySelector('.lap-list');
+const lapCount = document.querySelector('.lap-count');
+const runState = document.querySelector('.run-state');
+const stateLabel = document.querySelector('.state-label');
 
-var start = document.querySelector('.start');
-var pause = document.querySelector('.pause');
-var reset = document.querySelector('.reset');
-var lap = document.querySelector('.lap');
+let elapsedBeforeStart = 0;
+let startedAt = 0;
+let timerInterval = null;
+let previousLapTime = 0;
+let laps = [];
 
-var ol = document.querySelector('ol');
-
-var milliSeconds = 0;
-var sec = 0;
-var min = 0;
-var hs = 0;
-
-var timerInterval; // Zamanlayıcı aralığı
-
-function formatTime(time) {
-    return time.toString().padStart(2, '0');
+function formatTime(value) {
+    return String(value).padStart(2, '0');
 }
 
-function updateTimer() {
-    seconds.innerText = formatTime(sec);
-    minutes.innerText = formatTime(min);
-    hours.innerText = formatTime(hs);
-    ms.innerText = formatTime(milliSeconds);
+function getElapsedTime(now = performance.now()) {
+    return elapsedBeforeStart + (timerInterval === null ? 0 : now - startedAt);
 }
 
-function startTimer() {
-    timerInterval = setInterval(function () {
-        milliSeconds++;
-        if (milliSeconds === 100) {
-            sec++;
-            milliSeconds = 0;
-        }
-        if (sec === 60) {
-            min++;
-            sec = 0;
-        }
-        if (min === 60) {
-            hs++;
-            min = 0;
-        }
-        updateTimer();
-    }, 10);
+function formatDuration(duration) {
+    const totalHundredths = Math.floor(duration / 10);
+    const hundredths = totalHundredths % 100;
+    const totalSeconds = Math.floor(totalHundredths / 100);
+    const seconds = totalSeconds % 60;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const minutes = totalMinutes % 60;
+    const hours = Math.floor(totalMinutes / 60);
 
-    start.disabled = true;
-    pause.disabled = false;
+    return `${formatTime(hours)}:${formatTime(minutes)}:${formatTime(seconds)}.${formatTime(hundredths)}`;
 }
 
-function pauseTimer() {
-    clearInterval(timerInterval);
+function renderClock() {
+    const totalHundredths = Math.floor(getElapsedTime() / 10);
+    const totalSeconds = Math.floor(totalHundredths / 100);
 
-    start.disabled = false;
-    pause.disabled = true;
+    hoursDisplay.textContent = formatTime(Math.floor(totalSeconds / 3600));
+    minutesDisplay.textContent = formatTime(Math.floor(totalSeconds / 60) % 60);
+    secondsDisplay.textContent = formatTime(totalSeconds % 60);
+    hundredthsDisplay.textContent = formatTime(totalHundredths % 100);
 }
 
-function resetTimer() {
-    clearInterval(timerInterval);
-    milliSeconds = 0;
-    sec = 0;
-    min = 0;
-    hs = 0;
-    updateTimer();
-    ol.innerHTML = '';
-    lapCounter = 1;
-    lapSeconds = [];
-    start.disabled = false;
-    pause.disabled = true;
-}
+function renderLaps() {
+    lapList.replaceChildren();
+    lapCount.textContent = String(laps.length);
+    clearLapsButton.disabled = laps.length === 0;
 
-var lapCounter = 1; // Lap sayacı
-var lapSeconds = []; // Lap saniyelerini tutan dizi
-
-function addLap() {
-    if (ol.childElementCount >= 10) {
-        alert('Limit is 10. You cannot add more laps.');
+    if (laps.length === 0) {
+        const emptyState = document.createElement('li');
+        emptyState.className = 'empty-state';
+        emptyState.textContent = 'Your laps will show up here.';
+        lapList.append(emptyState);
         return;
     }
 
-    var currentLapTime = formatTime(hs) + ':' + formatTime(min) + ':' + formatTime(sec) + '.' + formatTime(milliSeconds);
-    if (lapSeconds.includes(currentLapTime)) {
-        alert('You cannot use the same lap time again.');
-    } else {
-        lapSeconds.push(currentLapTime);
-        var li = document.createElement('li');
-        li.innerText = 'Lap ' + ' ' + currentLapTime;
-        ol.append(li);
-        lapCounter++;
-    }
+    const fastestTime = Math.min(...laps.map((lap) => lap.split));
+    const slowestTime = Math.max(...laps.map((lap) => lap.split));
+
+    laps.forEach((lap, index) => {
+        const row = document.createElement('li');
+        const lapNumber = document.createElement('span');
+        const split = document.createElement('span');
+        const total = document.createElement('span');
+        const isFastest = lap.split === fastestTime;
+        const isSlowest = lap.split === slowestTime;
+
+        row.className = 'lap-row';
+        if (isFastest) row.classList.add('is-fastest');
+        if (isSlowest) row.classList.add('is-slowest');
+        lapNumber.className = 'lap-number';
+        split.className = 'lap-split';
+        total.className = 'lap-total';
+        lapNumber.textContent = formatTime(index + 1);
+        split.textContent = formatDuration(lap.split);
+        total.textContent = formatDuration(lap.total);
+
+        if (isFastest || isSlowest) {
+            const tag = document.createElement('small');
+            tag.className = 'lap-tag';
+            tag.textContent = isFastest && isSlowest ? 'FAST / SLOW' : isFastest ? 'FASTEST' : 'SLOWEST';
+            split.append(tag);
+        }
+
+        row.append(lapNumber, split, total);
+        lapList.append(row);
+    });
 }
 
-start.addEventListener('click', startTimer);
-pause.addEventListener('click', pauseTimer);
-reset.addEventListener('click', resetTimer);
-lap.addEventListener('click', addLap);
-updateTimer();
+function updateControls() {
+    const isRunning = timerInterval !== null;
+    const hasElapsed = getElapsedTime() > 0;
+
+    startButton.disabled = isRunning;
+    pauseButton.disabled = !isRunning;
+    lapButton.disabled = !hasElapsed;
+    resetButton.disabled = !hasElapsed && laps.length === 0;
+    runState.classList.toggle('is-running', isRunning);
+    stateLabel.textContent = isRunning ? 'Running' : hasElapsed ? 'Paused' : 'Ready';
+}
+
+function startTimer() {
+    if (timerInterval !== null) return;
+
+    startedAt = performance.now();
+    timerInterval = window.setInterval(() => {
+        renderClock();
+        updateControls();
+    }, 25);
+    updateControls();
+}
+
+function pauseTimer() {
+    if (timerInterval === null) return;
+
+    elapsedBeforeStart += performance.now() - startedAt;
+    window.clearInterval(timerInterval);
+    timerInterval = null;
+    renderClock();
+    updateControls();
+}
+
+function resetTimer() {
+    if (timerInterval !== null) {
+        window.clearInterval(timerInterval);
+    }
+
+    timerInterval = null;
+    elapsedBeforeStart = 0;
+    startedAt = 0;
+    previousLapTime = 0;
+    laps = [];
+    renderClock();
+    renderLaps();
+    updateControls();
+}
+
+function addLap() {
+    const total = getElapsedTime();
+    if (total <= 0) return;
+
+    laps.push({ split: total - previousLapTime, total });
+    previousLapTime = total;
+    renderLaps();
+    updateControls();
+}
+
+function clearLaps() {
+    laps = [];
+    previousLapTime = 0;
+    renderLaps();
+    updateControls();
+}
+
+startButton.addEventListener('click', startTimer);
+pauseButton.addEventListener('click', pauseTimer);
+resetButton.addEventListener('click', resetTimer);
+lapButton.addEventListener('click', addLap);
+clearLapsButton.addEventListener('click', clearLaps);
+
+document.addEventListener('keydown', (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+    if (event.target instanceof HTMLElement && event.target.isContentEditable) return;
+
+    const key = event.key.toLowerCase();
+    if (key === ' ' && !event.target.matches('button, input, textarea, select')) {
+        event.preventDefault();
+        if (timerInterval === null) startTimer();
+        else pauseTimer();
+    } else if (key === 'l') {
+        addLap();
+    } else if (key === 'r') {
+        resetTimer();
+    }
+});
+
+renderClock();
+renderLaps();
+updateControls();
