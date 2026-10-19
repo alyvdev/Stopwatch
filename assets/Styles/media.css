@@ -1,9 +1,83 @@
-@media screen and (max-width:767px) {
-    .time {
-        font-size: 4em;
+@media (max-width: 640px) {
+    .stopwatch {
+        width: min(100% - 32px, 480px);
     }
-    footer {
-        justify-content: center;
-        height: 4vh;
+
+    .topbar {
+        height: 70px;
+    }
+
+    .top-note {
+        font-size: 11px;
+    }
+
+    .timer-panel {
+        margin: 24px 0 22px;
+        padding: 30px 22px 25px;
+    }
+
+    .clock-wrap {
+        margin: 37px 0 28px;
+        padding: 23px 0 18px;
+    }
+
+    .clock {
+        font-size: clamp(41px, 10vw, 62px);
+    }
+
+    .clock-units {
+        font-size: 8px;
+    }
+
+    .controls {
+        gap: 7px;
+    }
+
+    .button {
+        min-width: 0;
+        flex: 1;
+        padding: 0 10px;
+    }
+
+    .button-primary {
+        min-width: 76px;
+    }
+
+    .button-reset {
+        flex: 0.8;
+    }
+
+    .shortcut-hint {
+        margin-bottom: 32px;
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 380px) {
+    .stopwatch {
+        width: calc(100% - 24px);
+    }
+
+    .timer-panel {
+        padding-right: 15px;
+        padding-left: 15px;
+    }
+
+    .top-note {
+        max-width: 125px;
+        text-align: right;
+    }
+
+    .clock {
+        font-size: clamp(37px, 10vw, 45px);
+    }
+
+    .clock-units {
+        font-size: 7px;
+    }
+
+    .button {
+        padding: 0 7px;
+        font-size: 11px;
     }
 }
